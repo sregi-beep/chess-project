@@ -4,8 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chess Engine</title>
-  <link rel="stylesheet"
-        href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css" />
+
+  <!-- jQuery MUST be first -- chessboard.js needs $.fn -->
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+
+  <!-- chess.js for client-side move validation -->
+  <script src="https://cdn.jsdelivr.net/npm/chess.js@0.12.0/chess.min.js"></script>
+
+  <!-- chessboard.js CSS and JS (after jQuery) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+
   <style>
     * { box-sizing: border-box; }
     body {
@@ -18,15 +27,11 @@
       padding: 30px;
       margin: 0;
     }
-    h1 { color: #e2b96f; margin-bottom: 6px; font-size: 1.8rem; }
-    p.subtitle { color: #aaa; margin-bottom: 20px; font-size: 0.95rem; }
-    #board-container { width: 480px; max-width: 95vw; }
+    h1 { color: #e2b96f; margin-bottom: 4px; font-size: 1.8rem; }
+    .subtitle { color: #aaa; margin-bottom: 20px; font-size: 0.95rem; }
+    #board-wrap { width: 480px; max-width: 92vw; }
     #board { width: 100%; }
-    .controls {
-      margin-top: 16px;
-      display: flex;
-      gap: 10px;
-    }
+    .controls { margin-top: 14px; display: flex; gap: 10px; }
     button {
       background: #e2b96f;
       border: none;
@@ -39,77 +44,42 @@
     }
     button:hover { background: #c9a050; }
     #status {
-      margin-top: 18px;
+      margin-top: 16px;
       font-size: 1.1rem;
-      min-height: 28px;
+      min-height: 26px;
       color: #e2b96f;
       font-weight: bold;
     }
-    #thinking {
-      color: #aaa;
-      font-size: 0.9rem;
-      min-height: 20px;
-      margin-top: 4px;
-    }
+    #thinking { color: #999; font-size: 0.9rem; min-height: 20px; margin-top: 4px; }
   </style>
 </head>
 <body>
   <h1>Chess Engine</h1>
-  <p class="subtitle">You play as White. Drag pieces to move.</p>
-  <div id="board-container">
-    <div id="board"></div>
-  </div>
+  <p class="subtitle">You play as White - drag pieces to move.</p>
+  <div id="board-wrap"><div id="board"></div></div>
   <div class="controls">
-    <button id="reset-btn">New Game</button>
-    <button id="flip-btn">Flip Board</button>
+    <button id="btn-reset">New Game</button>
+    <button id="btn-flip">Flip Board</button>
   </div>
   <div id="status"></div>
   <div id="thinking"></div>
 
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="https://unpkg.com/chess.js@0.12.0/chess.js"></script>
-  <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
   <script>
     var game = new Chess();
-    var engineThinking = false;
+    var engineBusy = false;
 
-    function setStatus(msg) {
-      document.getElementById('status').textContent = msg;
-    }
-
-    function setThinking(msg) {
-      document.getElementById('thinking').textContent = msg;
-    }
-
-    function onDragStart(source, piece, position, orientation) {
-      if (engineThinking) return false;
-      if (game.game_over()) return false;
-      if (piece.search(/^b/) !== -1) return false;
-    }
-
-    function onDrop(source, target) {
-      var move = source + target;
-      var moveObj = game.move({ from: source, to: target, promotion: 'q' });
-      if (moveObj === null) return 'snapback';
-
-      board.position(game.fen());
-      checkGameOver();
-      if (!game.game_over()) {
-        engineThinking = true;
-        setThinking('Engine thinking...');
-        setTimeout(requestEngineMove, 100);
-      }
-    }
-
-    function onSnapEnd() {
-      board.position(game.fen());
-    }
+    function setStatus(msg) { document.getElementById('status').textContent = msg; }
+    function setThinking(msg) { document.getElementById('thinking').textContent = msg; }
 
     function checkGameOver() {
       if (game.in_checkmate()) {
         setStatus(game.turn() === 'b' ? 'You win! Checkmate.' : 'Engine wins! Checkmate.');
-      } else if (game.in_draw()) {
-        setStatus('Draw!');
+      } else if (game.in_stalemate()) {
+        setStatus('Stalemate - Draw!');
+      } else if (game.in_threefold_repetition()) {
+        setStatus('Draw by repetition!');
+      } else if (game.insufficient_material()) {
+        setStatus('Insufficient material - Draw!');
       } else if (game.in_check()) {
         setStatus(game.turn() === 'w' ? 'White is in check.' : 'Black is in check.');
       } else {
@@ -117,36 +87,48 @@
       }
     }
 
-    function requestEngineMove() {
-      var fen = game.fen();
-      fetch('/move', {
+    function onDragStart(source, piece) {
+      if (engineBusy) return false;
+      if (game.game_over()) return false;
+      if (piece.search(/^b/) !== -1) return false;
+    }
+
+    function onDrop(source, target) {
+      var moveObj = game.move({ from: source, to: target, promotion: 'q' });
+      if (moveObj === null) return 'snapback';
+      board.position(game.fen());
+      checkGameOver();
+      if (!game.game_over()) {
+        engineBusy = true;
+        setThinking('Engine thinking...');
+        setTimeout(askEngine, 150);
+      }
+    }
+
+    function onSnapEnd() { board.position(game.fen()); }
+
+    function askEngine() {
+      fetch('/engine-move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ move: null, fen: fen })
-      })
-      .then(function() {
-        return fetch('/engine-move', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fen: fen })
-        });
+        body: JSON.stringify({ fen: game.fen() })
       })
       .then(function(res) { return res.json(); })
       .then(function(data) {
-        if (data.error) {
-          setThinking('Engine error: ' + data.error);
-          engineThinking = false;
-          return;
-        }
-        game.move({ from: data.move.slice(0,2), to: data.move.slice(2,4), promotion: 'q' });
-        board.position(game.fen());
-        engineThinking = false;
+        engineBusy = false;
         setThinking('');
+        if (data.error) { setStatus('Engine error: ' + data.error); return; }
+        var from  = data.move.slice(0, 2);
+        var to    = data.move.slice(2, 4);
+        var promo = data.move.length > 4 ? data.move[4] : 'q';
+        game.move({ from: from, to: to, promotion: promo });
+        board.position(game.fen());
         checkGameOver();
       })
-      .catch(function(err) {
-        setThinking('Error: ' + err);
-        engineThinking = false;
+      .catch(function() {
+        engineBusy = false;
+        setThinking('');
+        setStatus('Network error - is Flask running?');
       });
     }
 
@@ -156,22 +138,22 @@
       onDragStart: onDragStart,
       onDrop: onDrop,
       onSnapEnd: onSnapEnd,
-      pieceTheme: 'https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/img/chesspieces/wikipedia/{piece}.png'
+      pieceTheme: 'https://cdn.jsdelivr.net/npm/@chrisoakman/chessboardjs@1.0.0/dist/img/chesspieces/wikipedia/{piece}.png'
     });
 
-    document.getElementById('reset-btn').addEventListener('click', function() {
+    document.getElementById('btn-reset').addEventListener('click', function() {
       fetch('/reset', { method: 'POST' })
         .then(function(res) { return res.json(); })
-        .then(function(data) {
+        .then(function() {
           game = new Chess();
           board.start();
           setStatus('');
           setThinking('');
-          engineThinking = false;
+          engineBusy = false;
         });
     });
 
-    document.getElementById('flip-btn').addEventListener('click', function() {
+    document.getElementById('btn-flip').addEventListener('click', function() {
       board.flip();
     });
   </script>
