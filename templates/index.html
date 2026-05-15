@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chess Engine</title>
 
-  <!-- jQuery MUST be first -- chessboard.js needs $.fn -->
+  <!-- jQuery MUST be first -->
   <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
 
   <!-- chess.js for client-side move validation -->
@@ -31,7 +31,7 @@
     .subtitle { color: #aaa; margin-bottom: 20px; font-size: 0.95rem; }
     #board-wrap { width: 480px; max-width: 92vw; }
     #board { width: 100%; }
-    .controls { margin-top: 14px; display: flex; gap: 10px; }
+    .controls { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
     button {
       background: #e2b96f;
       border: none;
@@ -43,6 +43,30 @@
       color: #1a1a2e;
     }
     button:hover { background: #c9a050; }
+    .difficulty-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #2a2a4a;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 0.95rem;
+    }
+    .difficulty-wrap label { color: #aaa; font-weight: bold; }
+    .difficulty-wrap select {
+      background: #1a1a2e;
+      color: #e2b96f;
+      border: 1px solid #e2b96f;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+    #depth-label {
+      font-size: 0.78rem;
+      color: #888;
+      margin-top: 2px;
+    }
     #status {
       margin-top: 16px;
       font-size: 1.1rem;
@@ -55,12 +79,25 @@
 </head>
 <body>
   <h1>Chess Engine</h1>
-  <p class="subtitle">You play as White - drag pieces to move.</p>
+  <p class="subtitle">You play as White &mdash; drag pieces to move.</p>
   <div id="board-wrap"><div id="board"></div></div>
+
   <div class="controls">
     <button id="btn-reset">New Game</button>
     <button id="btn-flip">Flip Board</button>
+    <div class="difficulty-wrap">
+      <label for="depth-select">Difficulty:</label>
+      <select id="depth-select">
+        <option value="1">1 &mdash; Beginner</option>
+        <option value="2">2 &mdash; Easy</option>
+        <option value="3" selected>3 &mdash; Medium</option>
+        <option value="4">4 &mdash; Hard</option>
+        <option value="5">5 &mdash; Expert</option>
+      </select>
+    </div>
   </div>
+  <div id="depth-label">Depth 3 &mdash; looks 3 half-moves ahead</div>
+
   <div id="status"></div>
   <div id="thinking"></div>
 
@@ -68,18 +105,35 @@
     var game = new Chess();
     var engineBusy = false;
 
-    function setStatus(msg) { document.getElementById('status').textContent = msg; }
+    var depthDescriptions = {
+      '1': 'Depth 1 \u2014 looks 1 half-move ahead',
+      '2': 'Depth 2 \u2014 looks 2 half-moves ahead',
+      '3': 'Depth 3 \u2014 looks 3 half-moves ahead',
+      '4': 'Depth 4 \u2014 looks 4 half-moves ahead (slower)',
+      '5': 'Depth 5 \u2014 looks 5 half-moves ahead (may take ~10s)'
+    };
+
+    var depthSelect = document.getElementById('depth-select');
+    var depthLabel  = document.getElementById('depth-label');
+
+    depthSelect.addEventListener('change', function() {
+      depthLabel.textContent = depthDescriptions[depthSelect.value] || '';
+    });
+
+    function getDepth() { return parseInt(depthSelect.value, 10); }
+
+    function setStatus(msg)   { document.getElementById('status').textContent = msg; }
     function setThinking(msg) { document.getElementById('thinking').textContent = msg; }
 
     function checkGameOver() {
       if (game.in_checkmate()) {
         setStatus(game.turn() === 'b' ? 'You win! Checkmate.' : 'Engine wins! Checkmate.');
       } else if (game.in_stalemate()) {
-        setStatus('Stalemate - Draw!');
+        setStatus('Stalemate \u2014 Draw!');
       } else if (game.in_threefold_repetition()) {
         setStatus('Draw by repetition!');
       } else if (game.insufficient_material()) {
-        setStatus('Insufficient material - Draw!');
+        setStatus('Insufficient material \u2014 Draw!');
       } else if (game.in_check()) {
         setStatus(game.turn() === 'w' ? 'White is in check.' : 'Black is in check.');
       } else {
@@ -100,7 +154,8 @@
       checkGameOver();
       if (!game.game_over()) {
         engineBusy = true;
-        setThinking('Engine thinking...');
+        var d = getDepth();
+        setThinking('Engine thinking (depth ' + d + ')...');
         setTimeout(askEngine, 150);
       }
     }
@@ -111,7 +166,7 @@
       fetch('/engine-move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fen: game.fen() })
+        body: JSON.stringify({ fen: game.fen(), depth: getDepth() })
       })
       .then(function(res) { return res.json(); })
       .then(function(data) {
@@ -128,7 +183,7 @@
       .catch(function() {
         engineBusy = false;
         setThinking('');
-        setStatus('Network error - is Flask running?');
+        setStatus('Network error \u2014 is Flask running?');
       });
     }
 
