@@ -26,7 +26,6 @@ def player_move():
     global board
     data = request.get_json(force=True) or {}
 
-    # If client sends current FEN, sync server board first
     fen = data.get("fen")
     if fen:
         try:
@@ -36,7 +35,6 @@ def player_move():
 
     move_uci = data.get("move")
     if not move_uci:
-        # No move to apply — just confirm sync
         return jsonify({
             "fen": board.fen(),
             "game_over": board.is_game_over(),
@@ -61,11 +59,10 @@ def player_move():
 
 @app.route("/engine-move", methods=["POST"])
 def engine_move():
-    """Sync board from FEN, run engine, return best move."""
+    """Sync board from FEN, run engine at requested depth, return best move."""
     global board
     data = request.get_json(force=True) or {}
 
-    # Sync board from client FEN so we are always consistent
     fen = data.get("fen")
     if fen:
         try:
@@ -79,8 +76,15 @@ def engine_move():
     if not list(board.legal_moves):
         return jsonify({"error": "No legal moves"}), 400
 
+    # Read depth from request, clamp between 1 and 5
     try:
-        move = choose_engine_move(board, depth=3)
+        depth = int(data.get("depth", 3))
+        depth = max(1, min(5, depth))
+    except (TypeError, ValueError):
+        depth = 3
+
+    try:
+        move = choose_engine_move(board, depth=depth)
         board.push(move)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
