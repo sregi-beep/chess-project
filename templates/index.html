@@ -7,210 +7,658 @@
 
   <!-- jQuery MUST be first -->
   <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
-
   <!-- chess.js for client-side move validation -->
   <script src="https://cdn.jsdelivr.net/npm/chess.js@0.12.0/chess.min.js"></script>
-
   <!-- chessboard.js CSS and JS (after jQuery) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
   <script src="https://cdn.jsdelivr.net/npm/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
 
   <style>
-    * { box-sizing: border-box; }
+    :root {
+      --bg:        #1a1a2e;
+      --surface:   #232340;
+      --surface2:  #2a2a4a;
+      --gold:      #e2b96f;
+      --gold-dark: #c9a050;
+      --text:      #eeeeee;
+      --muted:     #aaaaaa;
+      --faint:     #666680;
+      --green:     #4caf7d;
+      --red:       #e05c5c;
+      --light-sq:  #f0d9b5;
+      --dark-sq:   #b58863;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: #1a1a2e;
-      color: #eee;
-      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', Arial, sans-serif;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 30px;
-      margin: 0;
+      padding: 24px 16px 40px;
     }
-    h1 { color: #e2b96f; margin-bottom: 4px; font-size: 1.8rem; }
-    .subtitle { color: #aaa; margin-bottom: 20px; font-size: 0.95rem; }
-    #board-wrap { width: 480px; max-width: 92vw; }
-    #board { width: 100%; }
-    .controls { margin-top: 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
-    button {
-      background: #e2b96f;
-      border: none;
-      padding: 10px 22px;
-      border-radius: 6px;
-      font-size: 1rem;
-      cursor: pointer;
+
+    /* ── Header ── */
+    header { text-align: center; margin-bottom: 20px; }
+    header h1 { color: var(--gold); font-size: 2rem; letter-spacing: 1px; }
+    header p  { color: var(--muted); font-size: 0.92rem; margin-top: 4px; }
+
+    /* ── Layout: board + sidebar ── */
+    .layout {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+      max-width: 960px;
+    }
+
+    /* ── Board column ── */
+    .board-col { display: flex; flex-direction: column; align-items: center; }
+
+    /* board + rank/file labels */
+    .board-outer {
+      position: relative;
+      user-select: none;
+    }
+    #board { width: 480px; max-width: 82vw; }
+
+    /* file labels (a–h) below board */
+    .file-labels {
+      display: flex;
+      width: 480px;
+      max-width: 82vw;
+      padding-left: 0;
+      margin-top: 4px;
+    }
+    .file-labels span {
+      flex: 1;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--faint);
       font-weight: bold;
-      color: #1a1a2e;
+      letter-spacing: 0.5px;
     }
-    button:hover { background: #c9a050; }
-    .difficulty-wrap {
+
+    /* rank labels (1–8) to the left of the board */
+    .rank-labels {
+      position: absolute;
+      left: -18px;
+      top: 0;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .rank-labels span {
+      flex: 1;
       display: flex;
       align-items: center;
-      gap: 8px;
-      background: #2a2a4a;
-      padding: 8px 14px;
-      border-radius: 6px;
-      font-size: 0.95rem;
-    }
-    .difficulty-wrap label { color: #aaa; font-weight: bold; }
-    .difficulty-wrap select {
-      background: #1a1a2e;
-      color: #e2b96f;
-      border: 1px solid #e2b96f;
-      border-radius: 4px;
-      padding: 4px 8px;
-      font-size: 0.95rem;
-      cursor: pointer;
-    }
-    #depth-label {
-      font-size: 0.78rem;
-      color: #888;
-      margin-top: 2px;
-    }
-    #status {
-      margin-top: 16px;
-      font-size: 1.1rem;
-      min-height: 26px;
-      color: #e2b96f;
+      font-size: 0.75rem;
+      color: var(--faint);
       font-weight: bold;
     }
-    #thinking { color: #999; font-size: 0.9rem; min-height: 20px; margin-top: 4px; }
+
+    /* ── Controls ── */
+    .controls {
+      margin-top: 14px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    button {
+      background: var(--gold);
+      border: none;
+      padding: 9px 20px;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      font-weight: bold;
+      color: var(--bg);
+      transition: background 0.15s;
+    }
+    button:hover  { background: var(--gold-dark); }
+    button:active { transform: scale(0.97); }
+
+    .select-wrap {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--surface2);
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    .select-wrap label { color: var(--muted); font-weight: bold; white-space: nowrap; }
+    .select-wrap select {
+      background: var(--bg);
+      color: var(--gold);
+      border: 1px solid var(--gold);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+
+    #depth-label {
+      font-size: 0.76rem;
+      color: var(--faint);
+      margin-top: 6px;
+      text-align: center;
+    }
+    #status {
+      margin-top: 12px;
+      font-size: 1.05rem;
+      min-height: 24px;
+      color: var(--gold);
+      font-weight: bold;
+      text-align: center;
+    }
+    #thinking { color: var(--muted); font-size: 0.85rem; min-height: 18px; text-align: center; margin-top: 3px; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 220px;
+      max-width: 260px;
+      flex: 1;
+    }
+
+    .panel {
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .panel h3 {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--gold);
+      margin-bottom: 10px;
+      border-bottom: 1px solid var(--surface2);
+      padding-bottom: 6px;
+    }
+
+    /* captured pieces */
+    .captured-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+      font-size: 0.85rem;
+    }
+    .captured-row .side-label {
+      width: 50px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      flex-shrink: 0;
+    }
+    .captured-pieces { display: flex; flex-wrap: wrap; gap: 2px; min-height: 22px; }
+    .captured-pieces img { width: 22px; height: 22px; }
+
+    /* score advantage */
+    .adv-bar-wrap { margin-top: 6px; }
+    .adv-label { font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; text-align: center; }
+    .adv-bar-bg {
+      height: 8px;
+      background: var(--surface2);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .adv-bar-fill {
+      height: 100%;
+      width: 50%;
+      background: var(--gold);
+      transition: width 0.3s ease;
+      border-radius: 4px;
+    }
+
+    /* move history table */
+    #move-table-wrap {
+      max-height: 280px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--surface2) transparent;
+    }
+    #move-table-wrap::-webkit-scrollbar { width: 5px; }
+    #move-table-wrap::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+
+    table.move-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    table.move-table th {
+      color: var(--muted);
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      padding: 3px 6px;
+      text-align: left;
+      border-bottom: 1px solid var(--surface2);
+    }
+    table.move-table td {
+      padding: 4px 6px;
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      font-size: 0.88rem;
+    }
+    table.move-table tr:nth-child(even) td { background: rgba(255,255,255,0.03); }
+    table.move-table tr.latest td { color: var(--gold); font-weight: bold; }
+    .no-moves { color: var(--faint); font-size: 0.82rem; font-style: italic; }
+
+    /* color selector */
+    .color-btns { display: flex; gap: 8px; }
+    .color-btn {
+      flex: 1;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      font-weight: bold;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .color-btn.white {
+      background: #f0d9b5;
+      color: #1a1a2e;
+      border-color: #c9a050;
+    }
+    .color-btn.black {
+      background: #2a2040;
+      color: #f0d9b5;
+      border-color: #5a4a80;
+    }
+    .color-btn.active-w { box-shadow: 0 0 0 3px var(--gold); }
+    .color-btn.active-b { box-shadow: 0 0 0 3px #a080ff; }
+    .color-btn:hover { opacity: 0.85; }
+
+    /* highlight squares */
+    .highlight-from { box-shadow: inset 0 0 0 4px rgba(255,200,50,0.75) !important; }
+    .highlight-to   { box-shadow: inset 0 0 0 4px rgba(50,200,120,0.75) !important; }
   </style>
 </head>
 <body>
-  <h1>Chess Engine</h1>
-  <p class="subtitle">You play as White &mdash; drag pieces to move.</p>
-  <div id="board-wrap"><div id="board"></div></div>
 
-  <div class="controls">
-    <button id="btn-reset">New Game</button>
-    <button id="btn-flip">Flip Board</button>
-    <div class="difficulty-wrap">
-      <label for="depth-select">Difficulty:</label>
-      <select id="depth-select">
-        <option value="1">1 &mdash; Beginner</option>
-        <option value="2">2 &mdash; Easy</option>
-        <option value="3" selected>3 &mdash; Medium</option>
-        <option value="4">4 &mdash; Hard</option>
-        <option value="5">5 &mdash; Expert</option>
-      </select>
+<header>
+  <h1>♟ Chess Engine</h1>
+  <p id="subtitle">Play against the Alpha-Beta engine</p>
+</header>
+
+<div class="layout">
+
+  <!-- LEFT: board -->
+  <div class="board-col">
+    <div class="board-outer">
+      <div class="rank-labels" id="rank-labels"></div>
+      <div id="board"></div>
     </div>
+    <div class="file-labels" id="file-labels"></div>
+
+    <div class="controls">
+      <button id="btn-reset">New Game</button>
+      <button id="btn-flip">Flip Board</button>
+      <div class="select-wrap">
+        <label for="depth-select">Difficulty:</label>
+        <select id="depth-select">
+          <option value="1">1 — Beginner</option>
+          <option value="2">2 — Easy</option>
+          <option value="3" selected>3 — Medium</option>
+          <option value="4">4 — Hard</option>
+          <option value="5">5 — Expert</option>
+        </select>
+      </div>
+    </div>
+    <div id="depth-label">Depth 3 — looks 3 half-moves ahead</div>
+    <div id="status"></div>
+    <div id="thinking"></div>
   </div>
-  <div id="depth-label">Depth 3 &mdash; looks 3 half-moves ahead</div>
 
-  <div id="status"></div>
-  <div id="thinking"></div>
+  <!-- RIGHT: sidebar -->
+  <div class="sidebar">
 
-  <script>
-    var game = new Chess();
-    var engineBusy = false;
+    <!-- Play as -->
+    <div class="panel">
+      <h3>Play As</h3>
+      <div class="color-btns">
+        <button class="color-btn white active-w" id="btn-white">♔ White</button>
+        <button class="color-btn black" id="btn-black">♚ Black</button>
+      </div>
+    </div>
 
-    var depthDescriptions = {
-      '1': 'Depth 1 \u2014 looks 1 half-move ahead',
-      '2': 'Depth 2 \u2014 looks 2 half-moves ahead',
-      '3': 'Depth 3 \u2014 looks 3 half-moves ahead',
-      '4': 'Depth 4 \u2014 looks 4 half-moves ahead (slower)',
-      '5': 'Depth 5 \u2014 looks 5 half-moves ahead (may take ~10s)'
-    };
+    <!-- Captured pieces + advantage -->
+    <div class="panel">
+      <h3>Material</h3>
+      <div class="captured-row">
+        <span class="side-label">White took</span>
+        <div class="captured-pieces" id="captured-by-white"></div>
+      </div>
+      <div class="captured-row">
+        <span class="side-label">Black took</span>
+        <div class="captured-pieces" id="captured-by-black"></div>
+      </div>
+      <div class="adv-bar-wrap">
+        <div class="adv-label" id="adv-label">Equal</div>
+        <div class="adv-bar-bg"><div class="adv-bar-fill" id="adv-bar"></div></div>
+      </div>
+    </div>
 
-    var depthSelect = document.getElementById('depth-select');
-    var depthLabel  = document.getElementById('depth-label');
+    <!-- Move history -->
+    <div class="panel">
+      <h3>Move History</h3>
+      <div id="move-table-wrap">
+        <p class="no-moves" id="no-moves-msg">No moves yet.</p>
+        <table class="move-table" id="move-table" style="display:none">
+          <thead><tr><th>#</th><th>White</th><th>Black</th></tr></thead>
+          <tbody id="move-tbody"></tbody>
+        </table>
+      </div>
+    </div>
 
-    depthSelect.addEventListener('change', function() {
-      depthLabel.textContent = depthDescriptions[depthSelect.value] || '';
-    });
+  </div>
+</div>
 
-    function getDepth() { return parseInt(depthSelect.value, 10); }
+<script>
+// ── Constants ──────────────────────────────────────────────
+var PIECE_VALS = { p:1, n:3, b:3, r:5, q:9 };
+var PIECE_IMG  = {
+  wP:'https://chessboardjs.com/img/chesspieces/wikipedia/wP.png',
+  wN:'https://chessboardjs.com/img/chesspieces/wikipedia/wN.png',
+  wB:'https://chessboardjs.com/img/chesspieces/wikipedia/wB.png',
+  wR:'https://chessboardjs.com/img/chesspieces/wikipedia/wR.png',
+  wQ:'https://chessboardjs.com/img/chesspieces/wikipedia/wQ.png',
+  bP:'https://chessboardjs.com/img/chesspieces/wikipedia/bP.png',
+  bN:'https://chessboardjs.com/img/chesspieces/wikipedia/bN.png',
+  bB:'https://chessboardjs.com/img/chesspieces/wikipedia/bB.png',
+  bR:'https://chessboardjs.com/img/chesspieces/wikipedia/bR.png',
+  bQ:'https://chessboardjs.com/img/chesspieces/wikipedia/bQ.png',
+};
 
-    function setStatus(msg)   { document.getElementById('status').textContent = msg; }
-    function setThinking(msg) { document.getElementById('thinking').textContent = msg; }
+var DEPTH_LABELS = {
+  '1':'Depth 1 — looks 1 half-move ahead',
+  '2':'Depth 2 — looks 2 half-moves ahead',
+  '3':'Depth 3 — looks 3 half-moves ahead',
+  '4':'Depth 4 — looks 4 half-moves ahead (slower)',
+  '5':'Depth 5 — looks 5 half-moves ahead (may take ~10s)'
+};
 
-    function checkGameOver() {
-      if (game.in_checkmate()) {
-        setStatus(game.turn() === 'b' ? 'You win! Checkmate.' : 'Engine wins! Checkmate.');
-      } else if (game.in_stalemate()) {
-        setStatus('Stalemate \u2014 Draw!');
-      } else if (game.in_threefold_repetition()) {
-        setStatus('Draw by repetition!');
-      } else if (game.insufficient_material()) {
-        setStatus('Insufficient material \u2014 Draw!');
-      } else if (game.in_check()) {
-        setStatus(game.turn() === 'w' ? 'White is in check.' : 'Black is in check.');
-      } else {
-        setStatus('');
-      }
+// ── State ──────────────────────────────────────────────────
+var game        = new Chess();
+var engineBusy  = false;
+var playerColor = 'w';
+var capturedByWhite = [];
+var capturedByBlack = [];
+
+// ── Helpers ────────────────────────────────────────────────
+function getDepth() { return parseInt(document.getElementById('depth-select').value, 10); }
+function setStatus(msg)   { document.getElementById('status').textContent = msg; }
+function setThinking(msg) { document.getElementById('thinking').textContent = msg; }
+function isPlayerTurn()   { return game.turn() === playerColor; }
+
+// ── Square labels ──────────────────────────────────────────
+function buildLabels() {
+  var files = ['a','b','c','d','e','f','g','h'];
+  var ranks = ['8','7','6','5','4','3','2','1'];
+
+  var fl = document.getElementById('file-labels');
+  fl.innerHTML = '';
+  var displayFiles = (playerColor === 'w') ? files : files.slice().reverse();
+  displayFiles.forEach(function(f) {
+    var s = document.createElement('span'); s.textContent = f; fl.appendChild(s);
+  });
+
+  var rl = document.getElementById('rank-labels');
+  rl.innerHTML = '';
+  var displayRanks = (playerColor === 'w') ? ranks : ranks.slice().reverse();
+  displayRanks.forEach(function(r) {
+    var s = document.createElement('span'); s.textContent = r; rl.appendChild(s);
+  });
+}
+
+// ── Square highlighting ────────────────────────────────────
+function clearHighlights() {
+  document.querySelectorAll('.square-55d63').forEach(function(sq) {
+    sq.classList.remove('highlight-from','highlight-to');
+  });
+}
+function highlightMove(from, to) {
+  clearHighlights();
+  var fromEl = document.querySelector('.square-' + from);
+  var toEl   = document.querySelector('.square-' + to);
+  if (fromEl) fromEl.classList.add('highlight-from');
+  if (toEl)   toEl.classList.add('highlight-to');
+}
+
+// ── Game over check ────────────────────────────────────────
+function checkGameOver() {
+  if (game.in_checkmate()) {
+    setStatus(game.turn() === 'b' ? '♔ White wins by Checkmate!' : '♚ Black wins by Checkmate!');
+  } else if (game.in_stalemate()) {
+    setStatus('Stalemate — Draw!');
+  } else if (game.in_threefold_repetition()) {
+    setStatus('Draw by threefold repetition!');
+  } else if (game.insufficient_material()) {
+    setStatus('Insufficient material — Draw!');
+  } else if (game.in_check()) {
+    setStatus(game.turn() === 'w' ? '⚠ White is in check.' : '⚠ Black is in check.');
+  } else {
+    setStatus('');
+  }
+}
+
+// ── Captured pieces ────────────────────────────────────────
+function syncCaptured() {
+  capturedByWhite = [];
+  capturedByBlack = [];
+  game.history({ verbose: true }).forEach(function(m) {
+    if (m.captured) {
+      var code = (m.color === 'w' ? 'b' : 'w') + m.captured.toUpperCase();
+      if (m.color === 'w') capturedByWhite.push(code);
+      else                 capturedByBlack.push(code);
     }
+  });
+  renderCaptured('captured-by-white', capturedByWhite);
+  renderCaptured('captured-by-black', capturedByBlack);
+  updateAdvBar();
+}
+function renderCaptured(id, list) {
+  var el = document.getElementById(id);
+  el.innerHTML = '';
+  list.forEach(function(code) {
+    var img = document.createElement('img');
+    img.src = PIECE_IMG[code] || '';
+    img.alt = code;
+    el.appendChild(img);
+  });
+}
+function updateAdvBar() {
+  var adv = 0;
+  capturedByWhite.forEach(function(c) { adv += PIECE_VALS[c[1].toLowerCase()] || 0; });
+  capturedByBlack.forEach(function(c) { adv -= PIECE_VALS[c[1].toLowerCase()] || 0; });
+  var bar   = document.getElementById('adv-bar');
+  var label = document.getElementById('adv-label');
+  var pct   = 50 + Math.min(Math.max(adv * 4, -45), 45);
+  bar.style.width = pct + '%';
+  if (adv > 0)      { label.textContent = 'White +'  + adv; bar.style.background = '#f0d9b5'; }
+  else if (adv < 0) { label.textContent = 'Black +' + (-adv); bar.style.background = '#9575cd'; }
+  else              { label.textContent = 'Equal'; bar.style.background = 'var(--gold)'; }
+}
 
-    function onDragStart(source, piece) {
-      if (engineBusy) return false;
-      if (game.game_over()) return false;
-      if (piece.search(/^b/) !== -1) return false;
-    }
+// ── Move history ───────────────────────────────────────────
+function updateMoveHistory() {
+  var history = game.history();
+  var tbody   = document.getElementById('move-tbody');
+  var table   = document.getElementById('move-table');
+  var noMsg   = document.getElementById('no-moves-msg');
 
-    function onDrop(source, target) {
-      var moveObj = game.move({ from: source, to: target, promotion: 'q' });
-      if (moveObj === null) return 'snapback';
-      board.position(game.fen());
-      checkGameOver();
-      if (!game.game_over()) {
+  if (history.length === 0) {
+    table.style.display = 'none';
+    noMsg.style.display = 'block';
+    return;
+  }
+  table.style.display = 'table';
+  noMsg.style.display = 'none';
+
+  tbody.innerHTML = '';
+  var rows = Math.ceil(history.length / 2);
+  for (var i = 0; i < rows; i++) {
+    var tr = document.createElement('tr');
+    var isLatest = (i === rows - 1);
+    if (isLatest) tr.className = 'latest';
+
+    var numTd = document.createElement('td');
+    numTd.textContent = (i + 1) + '.';
+
+    var whiteTd = document.createElement('td');
+    whiteTd.textContent = history[i * 2] || '';
+
+    var blackTd = document.createElement('td');
+    blackTd.textContent = history[i * 2 + 1] || '…';
+
+    tr.appendChild(numTd);
+    tr.appendChild(whiteTd);
+    tr.appendChild(blackTd);
+    tbody.appendChild(tr);
+  }
+
+  var wrap = document.getElementById('move-table-wrap');
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+// ── Engine call ────────────────────────────────────────────
+function askEngine() {
+  var d = getDepth();
+  setThinking('Engine thinking (depth ' + d + ')…');
+  fetch('/engine-move', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fen: game.fen(), depth: d })
+  })
+  .then(function(res) { return res.json(); })
+  .then(function(data) {
+    engineBusy = false;
+    setThinking('');
+    if (data.error) { setStatus('Engine error: ' + data.error); return; }
+    var from  = data.move.slice(0, 2);
+    var to    = data.move.slice(2, 4);
+    var promo = data.move.length > 4 ? data.move[4] : 'q';
+    game.move({ from: from, to: to, promotion: promo });
+    board.position(game.fen());
+    highlightMove(from, to);
+    syncCaptured();
+    updateMoveHistory();
+    checkGameOver();
+  })
+  .catch(function() {
+    engineBusy = false;
+    setThinking('');
+    setStatus('Network error — is Flask running?');
+  });
+}
+
+// ── Board event handlers ───────────────────────────────────
+function onDragStart(source, piece) {
+  if (engineBusy) return false;
+  if (game.game_over()) return false;
+  if (!isPlayerTurn()) return false;
+  if (playerColor === 'w' && piece.search(/^b/) !== -1) return false;
+  if (playerColor === 'b' && piece.search(/^w/) !== -1) return false;
+}
+
+function onDrop(source, target) {
+  clearHighlights();
+  var moveObj = game.move({ from: source, to: target, promotion: 'q' });
+  if (moveObj === null) return 'snapback';
+
+  highlightMove(source, target);
+  board.position(game.fen());
+  syncCaptured();
+  updateMoveHistory();
+  checkGameOver();
+
+  if (!game.game_over()) {
+    engineBusy = true;
+    setTimeout(askEngine, 200);
+  }
+}
+
+function onSnapEnd() { board.position(game.fen()); }
+
+// ── Init board ─────────────────────────────────────────────
+var board = Chessboard('board', {
+  draggable: true,
+  position: 'start',
+  orientation: 'white',
+  onDragStart: onDragStart,
+  onDrop: onDrop,
+  onSnapEnd: onSnapEnd,
+  pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+});
+buildLabels();
+
+// ── New Game ───────────────────────────────────────────────
+function startNewGame() {
+  fetch('/reset', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function() {
+      game = new Chess();
+      board.start();
+      clearHighlights();
+      setStatus('');
+      setThinking('');
+      engineBusy = false;
+      capturedByWhite = [];
+      capturedByBlack = [];
+      renderCaptured('captured-by-white', []);
+      renderCaptured('captured-by-black', []);
+      updateAdvBar();
+      updateMoveHistory();
+
+      if (playerColor === 'b') {
         engineBusy = true;
-        var d = getDepth();
-        setThinking('Engine thinking (depth ' + d + ')...');
-        setTimeout(askEngine, 150);
+        setTimeout(askEngine, 400);
       }
-    }
-
-    function onSnapEnd() { board.position(game.fen()); }
-
-    function askEngine() {
-      fetch('/engine-move', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fen: game.fen(), depth: getDepth() })
-      })
-      .then(function(res) { return res.json(); })
-      .then(function(data) {
-        engineBusy = false;
-        setThinking('');
-        if (data.error) { setStatus('Engine error: ' + data.error); return; }
-        var from  = data.move.slice(0, 2);
-        var to    = data.move.slice(2, 4);
-        var promo = data.move.length > 4 ? data.move[4] : 'q';
-        game.move({ from: from, to: to, promotion: promo });
-        board.position(game.fen());
-        checkGameOver();
-      })
-      .catch(function() {
-        engineBusy = false;
-        setThinking('');
-        setStatus('Network error \u2014 is Flask running?');
-      });
-    }
-
-    var board = Chessboard('board', {
-      draggable: true,
-      position: 'start',
-      onDragStart: onDragStart,
-      onDrop: onDrop,
-      onSnapEnd: onSnapEnd,
-      pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
     });
+}
 
-    document.getElementById('btn-reset').addEventListener('click', function() {
-      fetch('/reset', { method: 'POST' })
-        .then(function(res) { return res.json(); })
-        .then(function() {
-          game = new Chess();
-          board.start();
-          setStatus('');
-          setThinking('');
-          engineBusy = false;
-        });
-    });
+// ── Play as White / Black ──────────────────────────────────
+document.getElementById('btn-white').addEventListener('click', function() {
+  playerColor = 'w';
+  document.getElementById('btn-white').classList.add('active-w');
+  document.getElementById('btn-black').classList.remove('active-b');
+  document.getElementById('subtitle').textContent = 'You play as White — drag pieces to move.';
+  board.orientation('white');
+  buildLabels();
+  startNewGame();
+});
 
-    document.getElementById('btn-flip').addEventListener('click', function() {
-      board.flip();
-    });
-  </script>
+document.getElementById('btn-black').addEventListener('click', function() {
+  playerColor = 'b';
+  document.getElementById('btn-black').classList.add('active-b');
+  document.getElementById('btn-white').classList.remove('active-w');
+  document.getElementById('subtitle').textContent = 'You play as Black — drag pieces to move.';
+  board.orientation('black');
+  buildLabels();
+  startNewGame();
+});
+
+// ── Controls ───────────────────────────────────────────────
+document.getElementById('btn-reset').addEventListener('click', startNewGame);
+
+document.getElementById('btn-flip').addEventListener('click', function() {
+  board.flip();
+  buildLabels();
+});
+
+document.getElementById('depth-select').addEventListener('change', function() {
+  document.getElementById('depth-label').textContent = DEPTH_LABELS[this.value] || '';
+});
+</script>
 </body>
 </html>
